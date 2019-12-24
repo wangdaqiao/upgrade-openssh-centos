@@ -73,6 +73,44 @@ echo "New version upgrades as to lastest:" && $(ssh -V)
 ```
 
 ---
+---
+
+## Update with RPMs
+
+```bash
+cd /tmp
+mkdir openssh && cd openssh
+timestamp=$(date +%s)
+if [ ! -f ~/openssh-${version}-RPMs.el${rhel_version}.tar.gz ]; then 
+    echo "~/openssh-${version}-RPMs.el${rhel_version}.tar.gz not exist" 
+    exit 1
+fi
+cp ~/openssh-${version}-RPMs.el${rhel_version}.tar.gz ./
+tar zxf openssh-${version}-RPMs.el${rhel_version}.tar.gz 
+cp /etc/pam.d/sshd pam-ssh-conf-${timestamp}
+rpm -U *.rpm
+mv /etc/pam.d/sshd /etc/pam.d/sshd_${timestamp}
+yes | cp pam-ssh-conf-${timestamp} /etc/pam.d/sshd
+#sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/g' 
+
+# make sure 'PermitRootLogin yes' is in /etc/ssh/sshd_config
+grep "^PermitRootLogin yes" /etc/ssh/sshd_config
+if [ $? -eq 0 ];then
+        echo "PermitRootLogin yes">>/etc/ssh/sshd_config
+        exit
+fi
+
+/etc/ssh/sshd_config
+if [ "${rhel_version}" -eq "7" ]; then
+    chmod 600 /etc/ssh/ssh*
+    systemctl restart sshd.service
+else
+    /etc/init.d/sshd restart
+fi
+cd
+rm -rf /tmp/openssh
+echo "New version upgrades as to lastest:" && $(ssh -V)
+```
 
 More information please refer `build-RPMs-OpenSSH-CentOS.sh` script.
 
