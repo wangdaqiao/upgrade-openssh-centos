@@ -48,30 +48,44 @@ mv openssh-${version}-RPMs.el${rhel_version}.tar.gz ~ && rm -rf ~/rpmbuild ~/ope
 ## Update with RPMs
 
 ```bash
-cd /tmp
-mkdir openssh && cd openssh
+#!/bin/bash
+rhel_version=`rpm -q --queryformat '%{VERSION}' centos-release`
+version="8.1p1"
+
+#关闭selinux
+setenforce 0
+# sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+sed -i 's/SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+
+mkdir -p /tmp/openssh
 timestamp=$(date +%s)
-if [ ! -f ~/openssh-${version}-RPMs.el${rhel_version}.tar.gz ]; then 
-    echo "~/openssh-${version}-RPMs.el${rhel_version}.tar.gz not exist" 
+
+if [ ! -f openssh-${version}-RPMs.el${rhel_version}.tar.gz ]; then 
+    echo "openssh-${version}-RPMs.el${rhel_version}.tar.gz not exist" 
     exit 1
 fi
-cp ~/openssh-${version}-RPMs.el${rhel_version}.tar.gz ./
+cp openssh-${version}-RPMs.el${rhel_version}.tar.gz /tmp/openssh
+
+cd /tmp/openssh
 tar zxf openssh-${version}-RPMs.el${rhel_version}.tar.gz 
 cp /etc/pam.d/sshd pam-ssh-conf-${timestamp}
 rpm -U *.rpm
 mv /etc/pam.d/sshd /etc/pam.d/sshd_${timestamp}
 yes | cp pam-ssh-conf-${timestamp} /etc/pam.d/sshd
 #sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/g' 
-
 # make sure 'PermitRootLogin yes' is in /etc/ssh/sshd_config
 grep "^PermitRootLogin yes" /etc/ssh/sshd_config
-if [ $? -eq 0 ];then
+if [ $? -ne 0 ];then
         echo "PermitRootLogin yes">>/etc/ssh/sshd_config
-        exit
 fi
 
-/etc/ssh/sshd_config
+grep "^PasswordAuthentication yes" /etc/ssh/sshd_config
+if [ $? -ne 0 ];then
+        echo "PasswordAuthentication yes">>/etc/ssh/sshd_config
+fi
+
 if [ "${rhel_version}" -eq "7" ]; then
+    echo "restart sshd service now......"
     chmod 600 /etc/ssh/ssh*
     systemctl restart sshd.service
 else
